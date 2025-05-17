@@ -4,6 +4,7 @@ using System.Linq;
 using System.Collections.Generic;
 using Laba_12;
 using MusicInstrumentLibr;
+using System.Reflection;
 
 
 namespace TestLab12
@@ -543,7 +544,7 @@ namespace TestLab12
         public void GetHashCode_ValidKey_ReturnsSumOfCharCodes()
         {
             // Arrange
-            string key = "Guitar1"; // G=71, u=117, i=105, t=116, a=97, r=114, 1=49 -> 71+117+105+116+97+114+49=669
+            string key = "Guitar1"; //G=71, u=117, i=105, t=116, a=97, r=114, 1=49 -> 71+117+105+116+97+114+49=669
             var instrument = new Guitar("Guitar1", 101, 6);
             var node = new HashNode<MusicInstrument>(key, instrument);
 
@@ -1056,6 +1057,685 @@ namespace TestLab12
             Assert.IsTrue(pairs.Any(p => p.Key == "Piano1"));
             Assert.IsFalse(pairs.Any(p => p.Key == "Guitar1"));
             Assert.AreNotSame(instrument2, pairs.First().Value);
+        }
+    }
+
+    // Вспомогательный класс для тестирования, реализующий необходимые интерфейсы
+    // Добавляет простое int значение для удобства сравнения и предсказуемости в тестах.
+    public class TestMusicInstrument : MusicInstrument
+    {
+        private int testValue;
+
+        public int TestValue
+        {
+            get { return testValue; }
+            set { testValue = value; }
+        }
+
+        // Конструктор по умолчанию
+        public TestMusicInstrument() : base()
+        {
+            testValue = 0;
+        }
+
+        // Конструктор с параметрами
+        public TestMusicInstrument(string name, int id, int testValue) : base(name, id)
+        {
+            this.testValue = testValue;
+        }
+
+        // Конструктор копирования для глубокого копирования
+        public TestMusicInstrument(TestMusicInstrument other) : base(other)
+        {
+            this.testValue = other.testValue;
+        }
+
+        // Переопределение Clone для глубокого копирования
+        public new object Clone()
+        {
+            return new TestMusicInstrument(this);
+        }
+
+        // Переопределение CompareTo для использования TestValue для сравнения
+        public override int CompareTo(object obj)
+        {
+            if (obj is TestMusicInstrument other)
+            {
+                // Сравниваем по TestValue для предсказуемости в тестах
+                return this.TestValue.CompareTo(other.TestValue);
+            }
+            // Или используем базовое сравнение по имени
+            return base.CompareTo(obj);
+        }
+
+        // Переопределение Equals для сравнения по TestValue в дополнение к базовым полям
+        public override bool Equals(object obj)
+        {
+            if (base.Equals(obj) && obj is TestMusicInstrument other)
+            {
+                return this.TestValue == other.TestValue;
+            }
+            return false;
+        }
+
+        public override string ToString()
+        {
+            return $"Name: {Name}, Id: {Id.Number}, TestValue: {TestValue}";
+        }
+    }
+
+
+    [TestClass] // Атрибут MSTest для тестового класса
+    public class BinaryTreeNodeTests
+    {
+        [TestMethod] // Атрибут MSTest для тестового метода
+        public void BinaryTreeNode_Constructor_SetsDataAndChildrenToNull()
+        {
+            // Arrange
+            var data = new TestMusicInstrument("TestNode", 1, 10);
+
+            // Act
+            var node = new BinaryTreeNode<TestMusicInstrument>(data);
+
+            // Assert
+            Assert.IsNotNull(node);
+            Assert.IsNotNull(node.Data);
+            Assert.AreEqual(data, node.Data); // Проверка равенства значений
+            Assert.AreNotSame(data, node.Data); // Проверка глубокого копирования (новый объект)
+            Assert.IsNull(node.Left);
+            Assert.IsNull(node.Right);
+        }
+
+        [TestMethod]
+        public void DeepClone_NodeWithoutChildren_ReturnsDeepClone()
+        {
+            // Arrange
+            var originalData = new TestMusicInstrument("Original", 2, 20);
+            var originalNode = new BinaryTreeNode<TestMusicInstrument>(originalData);
+
+            // Act
+            var clonedNode = originalNode.DeepClone();
+
+            // Assert
+            Assert.IsNotNull(clonedNode);
+            Assert.AreNotSame(originalNode, clonedNode); // Клонированный узел - новый объект
+            Assert.IsNotNull(clonedNode.Data);
+            Assert.AreEqual(originalData, clonedNode.Data); // Значения данных равны
+            Assert.AreNotSame(originalData, clonedNode.Data); // Объект данных - глубокая копия
+            Assert.IsNull(clonedNode.Left);
+            Assert.IsNull(clonedNode.Right);
+        }
+
+        [TestMethod]
+        public void DeepClone_NodeWithChildren_ReturnsDeepCloneOfNodeAndSubtree()
+        {
+            // Arrange
+            var parentData = new TestMusicInstrument("Parent", 3, 30);
+            var leftData = new TestMusicInstrument("LeftChild", 4, 40);
+            var rightData = new TestMusicInstrument("RightChild", 5, 50);
+
+            var originalNode = new BinaryTreeNode<TestMusicInstrument>(parentData);
+            originalNode.Left = new BinaryTreeNode<TestMusicInstrument>(leftData);
+            originalNode.Right = new BinaryTreeNode<TestMusicInstrument>(rightData);
+
+            // Act
+            var clonedNode = originalNode.DeepClone();
+
+            // Assert
+            Assert.IsNotNull(clonedNode);
+            Assert.AreNotSame(originalNode, clonedNode); // Клонированный узел - новый объект
+            Assert.IsNotNull(clonedNode.Data);
+            Assert.AreEqual(parentData, clonedNode.Data);
+            Assert.AreNotSame(parentData, clonedNode.Data);
+
+            Assert.IsNotNull(clonedNode.Left);
+            Assert.AreNotSame(originalNode.Left, clonedNode.Left); // Клонированный левый потомок - новый объект
+            Assert.IsNotNull(clonedNode.Left.Data);
+            Assert.AreEqual(leftData, clonedNode.Left.Data);
+            Assert.AreNotSame(leftData, clonedNode.Left.Data);
+
+            Assert.IsNotNull(clonedNode.Right);
+            Assert.AreNotSame(originalNode.Right, clonedNode.Right); // Клонированный правый потомок - новый объект
+            Assert.IsNotNull(clonedNode.Right.Data);
+            Assert.AreEqual(rightData, clonedNode.Right.Data);
+            Assert.AreNotSame(rightData, clonedNode.Right.Data);
+        }
+    }
+
+
+    [TestClass] // Атрибут MSTest для тестового класса
+    public class BinaryTreeTests
+    {
+        private Func<TestMusicInstrument>? _generator;
+        private List<TestMusicInstrument>? _generatedData;
+        private int _generatorIndex;
+
+        [TestInitialize] // Атрибут MSTest для метода инициализации перед каждым тестом
+        public void Setup()
+        {
+            // Инициализация предсказуемых данных для генератора
+            _generatedData = new List<TestMusicInstrument>
+        {
+            new TestMusicInstrument("Instrument_E", 105, 5), // Корень идеально сбалансированного дерева из 7 узлов
+            new TestMusicInstrument("Instrument_B", 102, 2),
+            new TestMusicInstrument("Instrument_G", 107, 7),
+            new TestMusicInstrument("Instrument_A", 101, 1),
+            new TestMusicInstrument("Instrument_D", 104, 4),
+            new TestMusicInstrument("Instrument_F", 106, 6),
+            new TestMusicInstrument("Instrument_C", 103, 3),
+            new TestMusicInstrument("Instrument_H", 108, 8),
+            new TestMusicInstrument("Instrument_I", 109, 9),
+            new TestMusicInstrument("Instrument_J", 110, 10)
+        };
+            _generatorIndex = 0;
+
+            // Создание функции-генератора, которая возвращает данные из списка последовательно
+            _generator = () =>
+            {
+                if (_generatorIndex < _generatedData.Count)
+                {
+                    // Возвращаем клон для имитации генерации *новых* уникальных экземпляров при каждом вызове
+                    return (TestMusicInstrument)_generatedData[_generatorIndex++].Clone();
+                }
+                throw new InvalidOperationException("Генератор исчерпал данные");
+            };
+        }
+
+        // Вспомогательный метод для подсчета узлов в дереве
+        private int CountNodes(BinaryTreeNode<TestMusicInstrument>? node)
+        {
+            if (node == null) return 0;
+            return 1 + CountNodes(node.Left) + CountNodes(node.Right);
+        }
+
+        // Вспомогательный метод для получения корня (с использованием рефлексии для приватного поля)
+        // Обращение к приватным полям в тестах не рекомендуется, но здесь используется для проверки состояния дерева.
+        private BinaryTreeNode<TestMusicInstrument>? GetRoot(BinaryTree<TestMusicInstrument> tree)
+        {
+            var rootField = typeof(BinaryTree<TestMusicInstrument>)
+                                .GetField("root", BindingFlags.NonPublic | BindingFlags.Instance);
+            return (BinaryTreeNode<TestMusicInstrument>?)rootField?.GetValue(tree);
+        }
+
+        // Вспомогательный метод для сбора элементов с использованием инфиксного обхода (для проверки свойств BST)
+        private List<TestMusicInstrument> CollectElementsInOrder(BinaryTreeNode<TestMusicInstrument>? node, List<TestMusicInstrument> elements)
+        {
+            if (node == null) return elements;
+            CollectElementsInOrder(node.Left, elements);
+            elements.Add(node.Data);
+            CollectElementsInOrder(node.Right, elements);
+            return elements;
+        }
+
+        // Вспомогательный метод для проверки, является ли дерево корректным Binary Search Tree
+        // Проверяет, что левый потомок меньше родителя, а правый потомок больше (на основе CompareTo).
+        private bool IsBinarySearchTree(BinaryTreeNode<TestMusicInstrument>? node, TestMusicInstrument? min = null, TestMusicInstrument? max = null)
+        {
+            if (node == null) return true;
+
+            if (min != null && node.Data.CompareTo(min) <= 0) return false;
+            if (max != null && node.Data.CompareTo(max) >= 0) return false;
+
+            return IsBinarySearchTree(node.Left, min, node.Data) &&
+                   IsBinarySearchTree(node.Right, node.Data, max);
+        }
+
+        // Вспомогательный метод для сбора элементов из любой структуры дерева (похож на приватный CollectElements)
+        private void CollectElementsRecursivePublic(BinaryTreeNode<TestMusicInstrument>? node, List<TestMusicInstrument> elements)
+        {
+            if (node == null) return;
+            elements.Add(node.Data);
+            CollectElementsRecursivePublic(node.Left, elements);
+            CollectElementsRecursivePublic(node.Right, elements);
+        }
+
+        // Вспомогательный метод для получения всех узлов в дереве (любой порядок)
+        private List<BinaryTreeNode<TestMusicInstrument>> GetAllNodes(BinaryTreeNode<TestMusicInstrument>? node)
+        {
+            var nodes = new List<BinaryTreeNode<TestMusicInstrument>>();
+            if (node != null)
+            {
+                nodes.Add(node);
+                if (node.Left != null) nodes.AddRange(GetAllNodes(node.Left));
+                if (node.Right != null) nodes.AddRange(GetAllNodes(node.Right));
+            }
+            return nodes;
+        }
+
+        // Вспомогательный метод для вставки напрямую в корень дерева, имитируя вызовы InsertToSearchTreeRecursive
+        // Используется для построения специфических BST для тестов удаления.
+        private void InsertIntoTree(BinaryTree<TestMusicInstrument> tree, TestMusicInstrument data)
+        {
+            var method = typeof(BinaryTree<TestMusicInstrument>)
+                           .GetMethod("InsertToSearchTreeRecursive", BindingFlags.NonPublic | BindingFlags.Instance);
+            var rootField = typeof(BinaryTree<TestMusicInstrument>)
+                               .GetField("root", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (method == null || rootField == null) throw new InvalidOperationException("Не удалось получить доступ к приватным членам для настройки.");
+
+            var currentRoot = GetRoot(tree);
+            var newRoot = method.Invoke(tree, new object?[] { currentRoot, data }); // Вызываем с текущим корнем и данными
+            rootField.SetValue(tree, newRoot); // Обновляем поле root
+        }
+
+        // Вспомогательный метод для поиска узла по TestValue в BST
+        private BinaryTreeNode<TestMusicInstrument>? FindNodeByTestValue(BinaryTreeNode<TestMusicInstrument>? node, int testValue)
+        {
+            if (node == null) return null;
+            if (node.Data.TestValue == testValue) return node;
+
+            // Ищем в левом или правом поддереве согласно свойству BST (используя CompareTo, которое использует TestValue)
+            if (testValue.CompareTo(node.Data.TestValue) < 0)
+            {
+                return FindNodeByTestValue(node.Left, testValue);
+            }
+            else
+            {
+                return FindNodeByTestValue(node.Right, testValue);
+            }
+        }
+
+
+        [TestMethod]
+        public void BinaryTree_Constructor_InitializesWithNullRoot()
+        {
+            // Arrange & Act
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+
+            // Assert
+            Assert.IsNotNull(tree);
+            Assert.IsNull(GetRoot(tree));
+        }
+
+        [TestMethod]
+        public void CreateIdealTree_SizeZero_RootIsNull()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+
+            // Act
+            tree.CreateIdealTree(0);
+
+            // Assert
+            Assert.IsNull(GetRoot(tree));
+            Assert.AreEqual(0, CountNodes(GetRoot(tree)));
+        }
+
+        [TestMethod]
+        public void CreateIdealTree_SizeOne_CreatesSingleNodeTree()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+
+            // Act
+            tree.CreateIdealTree(1);
+
+            // Assert
+            var root = GetRoot(tree);
+            Assert.IsNotNull(root);
+            Assert.AreEqual(1, CountNodes(root));
+            Assert.IsNull(root?.Left);
+            Assert.IsNull(root?.Right);
+        }
+
+        [TestMethod]
+        public void CreateIdealTree_SizeSeven_CreatesSevenNodes()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+
+            // Act
+            tree.CreateIdealTree(7);
+
+            // Assert
+            var root = GetRoot(tree);
+            Assert.IsNotNull(root);
+            Assert.AreEqual(7, CountNodes(root));
+            // Простая проверка структуры для размера 7 (должна быть глубина 3)
+            Assert.IsNotNull(root?.Left);
+            Assert.IsNotNull(root?.Right);
+            Assert.IsNotNull(root?.Left?.Left);
+            Assert.IsNotNull(root?.Left?.Right);
+            Assert.IsNotNull(root?.Right?.Left);
+            Assert.IsNotNull(root?.Right?.Right);
+        }
+
+        [TestMethod]
+        public void FindMaxElement_EmptyTree_ReturnsNull()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator); // Дерево изначально пустое
+
+            // Act
+            var maxElement = tree.FindMaxElement();
+
+            // Assert
+            Assert.IsNull(maxElement);
+        }
+
+        [TestMethod]
+        public void FindMaxElement_SingleNodeTree_ReturnsClonedData()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(1); // Создает дерево с одним узлом (TestValue 5 из генератора)
+            var expectedData = new TestMusicInstrument("Instrument_E", 105, 5);
+
+            // Act
+            var maxElement = tree.FindMaxElement();
+
+            // Assert
+            Assert.IsNotNull(maxElement);
+            Assert.AreEqual(expectedData, maxElement);
+            Assert.AreNotSame(expectedData, maxElement); // Должен быть клон, а не исходный экземпляр
+            Assert.AreNotSame(GetRoot(tree)?.Data, maxElement); // Должен быть клон, а не данные в узле дерева
+        }
+
+        [TestMethod]
+        public void FindMaxElement_MultipleNodes_ReturnsClonedMaximum()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(7); // Создаем дерево с 7 узлами
+                                     // Максимальный элемент по CompareTo (использующему TestValue) должен быть тот, у кого TestValue равен 7
+            var expectedMaxData = new TestMusicInstrument("Instrument_G", 107, 7); // Это 3-й элемент в _generatedData
+
+            // Act
+            var maxElement = tree.FindMaxElement();
+
+            // Assert
+            Assert.IsNotNull(maxElement);
+            Assert.AreEqual(expectedMaxData, maxElement);
+            Assert.AreNotSame(expectedMaxData, maxElement); // Должен быть клон
+        }
+
+        [TestMethod]
+        public void ConvertToSearchTree_EmptyTree_ReturnsNewEmptyTree()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator); // Пустое дерево
+
+            // Act
+            var searchTree = tree.ConvertToSearchTree();
+
+            // Assert
+            Assert.IsNotNull(searchTree);
+            Assert.AreNotSame(tree, searchTree); // Должен быть новый объект дерева
+            Assert.IsNull(GetRoot(searchTree));
+            Assert.AreEqual(0, CountNodes(GetRoot(searchTree)));
+        }
+
+        [TestMethod]
+        public void ConvertToSearchTree_NonEmptyTree_ReturnsValidSearchTreeWithAllElements()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(7); // Создаем дерево с 7 узлами
+
+            // Собираем элементы из исходного дерева
+            var originalElements = new List<TestMusicInstrument>();
+            CollectElementsRecursivePublic(GetRoot(tree), originalElements);
+            originalElements = originalElements.OrderBy(mi => mi.TestValue).ToList(); // Сортируем для последующего сравнения
+
+            // Act
+            var searchTree = tree.ConvertToSearchTree();
+
+            // Assert
+            Assert.IsNotNull(searchTree);
+            Assert.AreNotSame(tree, searchTree); // Должен быть новый объект дерева
+            Assert.IsNotNull(GetRoot(searchTree));
+            Assert.AreEqual(7, CountNodes(GetRoot(searchTree))); // Проверка количества узлов
+
+            // Проверка свойства дерева поиска
+            Assert.IsTrue(IsBinarySearchTree(GetRoot(searchTree)), "Преобразованное дерево не является корректным деревом поиска.");
+
+            // Проверка наличия всех элементов из исходного дерева в дереве поиска
+            var searchTreeElements = CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>());
+            searchTreeElements = searchTreeElements.OrderBy(mi => mi.TestValue).ToList(); // Инфиксный обход BST дает отсортированные элементы
+
+            Assert.AreEqual(originalElements.Count, searchTreeElements.Count);
+            CollectionAssert.AreEquivalent(originalElements, searchTreeElements); // Проверка эквивалентности коллекций
+
+            // Проверка, что элементы в дереве поиска являются клонами
+            var allNodesInSearchTree = GetAllNodes(GetRoot(searchTree)); // Вспомогательный метод для получения всех узлов
+            foreach (var node in allNodesInSearchTree)
+            {
+                var originalElement = originalElements.FirstOrDefault(oe => oe.Equals(node.Data));
+                Assert.AreNotSame(originalElement, node.Data, $"Элемент {node.Data} в дереве поиска не является клоном.");
+            }
+        }
+
+        [TestMethod]
+        public void DeleteFromSearchTree_EmptyTree_RemainsEmpty()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator); // Пустое дерево
+
+            // Act
+            tree.DeleteFromSearchTree("NonExistentKey");
+
+            // Assert
+            Assert.IsNull(GetRoot(tree));
+            Assert.AreEqual(0, CountNodes(GetRoot(tree)));
+        }
+
+        [TestMethod]
+        public void DeleteFromSearchTree_NonExistentKey_TreeRemainsUnchanged()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(7);
+            var searchTree = tree.ConvertToSearchTree(); // Преобразование в BST
+
+            var initialElements = CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>());
+            var initialNodeCount = CountNodes(GetRoot(searchTree));
+            Assert.AreEqual(7, initialElements.Count, "Ошибка настройки: Неверное количество узлов.");
+
+            // Act
+            searchTree.DeleteFromSearchTree("NonExistentKey"); // Попытка удалить несуществующий ключ
+
+            // Assert
+            Assert.IsNotNull(GetRoot(searchTree));
+            Assert.AreEqual(initialNodeCount, CountNodes(GetRoot(searchTree))); // Количество узлов не должно измениться
+            Assert.IsTrue(IsBinarySearchTree(GetRoot(searchTree)), "Дерево должно оставаться корректным BST.");
+
+            // Проверка, что элементы остались прежними
+            var elementsAfterDelete = CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>());
+            CollectionAssert.AreEquivalent(initialElements, elementsAfterDelete);
+        }
+
+        [TestMethod]
+        public void DeleteFromSearchTree_RootWithNoChildren_RootBecomesNull()
+        {
+            // Arrange
+            var singleNodeTree = new BinaryTree<TestMusicInstrument>(_generator);
+            singleNodeTree.CreateIdealTree(1); // Создаем дерево с одним узлом (TestValue 5)
+            var searchTree = singleNodeTree.ConvertToSearchTree(); // Преобразуем один узел в BST
+
+            var rootData = GetRoot(searchTree)?.Data;
+            Assert.IsNotNull(rootData, "Ошибка настройки: Корень не должен быть null.");
+
+            // Act
+            searchTree.DeleteFromSearchTree(rootData?.Name ?? ""); // Удаляем ключ корня
+
+            // Assert
+            Assert.IsNull(GetRoot(searchTree)); // Корень должен стать null после удаления единственного узла
+            Assert.AreEqual(0, CountNodes(GetRoot(searchTree))); // Количество узлов должно стать 0
+        }
+
+
+        [TestMethod]
+        public void DeleteFromSearchTree_LeafNode_NodeIsRemovedAndParentLinkIsNull()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            // Создаем дерево и преобразуем в BST
+            tree.CreateIdealTree(7);
+            var searchTree = tree.ConvertToSearchTree(); 
+            var keyToDelete = "Instrument_A"; // TestValue 1
+
+            var initialNodeCount = CountNodes(GetRoot(searchTree));
+            Assert.AreEqual(7, initialNodeCount, "Ошибка настройки: Неверное количество узлов.");
+            Assert.IsTrue(CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>()).Any(e => e.Name == keyToDelete), "Ошибка настройки: Элемент для удаления должен существовать.");
+
+
+            // Act
+            searchTree.DeleteFromSearchTree(keyToDelete);
+
+            // Assert
+            Assert.IsNotNull(GetRoot(searchTree));
+            Assert.AreEqual(initialNodeCount - 1, CountNodes(GetRoot(searchTree))); // Количество узлов должно уменьшиться на 1
+            Assert.IsTrue(IsBinarySearchTree(GetRoot(searchTree)), "Дерево должно оставаться корректным BST после удаления листа.");
+
+            // Проверка, что удаленный элемент отсутствует
+            var elementsAfterDelete = CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>());
+            Assert.IsFalse(elementsAfterDelete.Any(e => e.Name == keyToDelete), "Удаленный элемент не должен быть в дереве.");
+
+            // Проверка, что ссылка у родителя (узел 2) стала null
+            var root = GetRoot(searchTree);
+            var node2 = FindNodeByTestValue(root, 2);
+            Assert.IsNull(node2?.Left, "Левый потомок узла 2 должен стать null после удаления узла 1.");
+        }
+
+
+        [TestMethod]
+        public void DeleteFromSearchTree_NodeWithLeftChildOnly_ReplacedByLeftChild()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(0); // Начинаем с пустого
+            InsertIntoTree(tree, new TestMusicInstrument("Root", 100, 10));
+            InsertIntoTree(tree, new TestMusicInstrument("LeftChildOnly", 101, 5));
+            InsertIntoTree(tree, new TestMusicInstrument("GrandleftChild", 102, 3)); // Это пойдет влево от 5
+
+            var searchTree = tree; 
+            var keyToDelete = "LeftChildOnly"; // TestValue 5
+            var initialNodeCount = CountNodes(GetRoot(searchTree));
+            Assert.AreEqual(3, initialNodeCount, "Ошибка настройки: Неверное количество узлов.");
+
+            // Act
+            searchTree.DeleteFromSearchTree(keyToDelete);
+
+            // Assert
+            Assert.IsNotNull(GetRoot(searchTree));
+            Assert.AreEqual(initialNodeCount - 1, CountNodes(GetRoot(searchTree))); // Количество узлов должно стать 2
+            Assert.IsTrue(IsBinarySearchTree(GetRoot(searchTree)), "Дерево должно оставаться корректным BST после удаления узла с левым потомком.");
+
+            // Проверка, что левый потомок узла 10 теперь узел 3
+            var root = GetRoot(searchTree);
+            Assert.IsNotNull(root?.Left);
+            Assert.AreEqual(3, root?.Left?.Data.TestValue, "Левый потомок корня должен теперь быть внуком (3).");
+            Assert.IsNull(root?.Left?.Left, "Новый узел на месте узла 5 не должен иметь левого потомка.");
+            Assert.IsNull(root?.Left?.Right, "Новый узел на месте узла 5 не должен иметь правого потомка.");
+        }
+
+        [TestMethod]
+        public void DeleteFromSearchTree_NodeWithRightChildOnly_ReplacedByRightChild()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(0); // Начинаем с пустого
+            InsertIntoTree(tree, new TestMusicInstrument("Root", 100, 10));
+            InsertIntoTree(tree, new TestMusicInstrument("RightChildOnly", 101, 15));
+            InsertIntoTree(tree, new TestMusicInstrument("Grandchild", 102, 17)); // Это пойдет вправо от 15
+
+            var searchTree = tree; 
+            var keyToDelete = "RightChildOnly"; // TestValue 15
+            var initialNodeCount = CountNodes(GetRoot(searchTree));
+            Assert.AreEqual(3, initialNodeCount, "Ошибка настройки: Неверное количество узлов.");
+
+            // Act
+            searchTree.DeleteFromSearchTree(keyToDelete);
+
+            // Assert
+            Assert.IsNotNull(GetRoot(searchTree));
+            Assert.AreEqual(initialNodeCount - 1, CountNodes(GetRoot(searchTree))); // Количество узлов должно стать 2
+            Assert.IsTrue(IsBinarySearchTree(GetRoot(searchTree)), "Дерево должно оставаться корректным BST после удаления узла с правым потомком.");
+
+            // Проверка, что правый потомок узла 10 теперь узел 17
+            var root = GetRoot(searchTree);
+            Assert.IsNotNull(root?.Right);
+            Assert.AreEqual(17, root?.Right?.Data.TestValue, "Правый потомок корня должен теперь быть внуком (17).");
+            Assert.IsNull(root?.Right?.Left, "Новый узел на месте узла 15 не должен иметь левого потомка.");
+            Assert.IsNull(root?.Right?.Right, "Новый узел на месте узла 15 не должен иметь правого потомка.");
+        }
+
+        [TestMethod]
+        public void DeleteFromSearchTree_NodeWithTwoChildren_ReplacedByInorderSuccessor()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(0); // Начинаем с пустого
+            InsertIntoTree(tree, new TestMusicInstrument("Node10", 100, 10));
+            InsertIntoTree(tree, new TestMusicInstrument("Node05", 101, 5));
+            InsertIntoTree(tree, new TestMusicInstrument("Node15", 102, 15));
+            InsertIntoTree(tree, new TestMusicInstrument("Node03", 103, 3));
+            InsertIntoTree(tree, new TestMusicInstrument("Node07", 104, 7));
+            InsertIntoTree(tree, new TestMusicInstrument("Node12", 105, 12));
+            InsertIntoTree(tree, new TestMusicInstrument("Node17", 106, 17));
+
+            var searchTree = tree; 
+            var keyToDelete = "Node10"; // TestValue 10
+            var expectedSuccessorValue = 12;
+
+            var initialNodeCount = CountNodes(GetRoot(searchTree));
+            Assert.AreEqual(7, initialNodeCount, "Ошибка настройки: Неверное количество узлов.");
+            Assert.IsTrue(CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>()).Any(e => e.Name == keyToDelete), "Ошибка настройки: Элемент для удаления должен существовать.");
+            Assert.IsTrue(CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>()).Any(e => e.TestValue == expectedSuccessorValue), "Ошибка настройки: Преемник должен существовать.");
+
+
+            // Act
+            searchTree.DeleteFromSearchTree(keyToDelete);
+
+            // Assert
+            Assert.IsNotNull(GetRoot(searchTree));
+            Assert.AreEqual(initialNodeCount - 1, CountNodes(GetRoot(searchTree))); // Количество узлов должно стать 6
+            Assert.IsTrue(IsBinarySearchTree(GetRoot(searchTree)), "Дерево должно оставаться корректным BST после удаления узла с двумя потомками.");
+
+            // Проверка, что удаленный элемент (Узел 10) отсутствует
+            var elementsAfterDelete = CollectElementsInOrder(GetRoot(searchTree), new List<TestMusicInstrument>());
+            Assert.IsFalse(elementsAfterDelete.Any(e => e.Name == keyToDelete), "Удаленный элемент (Узел 10) не должен быть в дереве.");
+
+            // Проверка, что данные нового корня - это инфиксный преемник (Узел 12)
+            var root = GetRoot(searchTree);
+            Assert.AreEqual(expectedSuccessorValue, root?.Data.TestValue, "Данные нового корня должны быть инфиксным преемником (12).");
+
+            // Проверка, что преемник (Узел 12) удален со своей исходной позиции (левый потомок 15)
+            var node15 = FindNodeByTestValue(root, 15);
+            Assert.IsNotNull(node15, "Узел 15 должен остаться в дереве.");
+            Assert.IsNull(node15?.Left, "Левый потомок узла 15 (который был 12) должен стать null.");
+        }
+
+
+        [TestMethod]
+        public void Clear_EmptyTree_RemainsEmpty()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator); // Пустое дерево
+
+            // Act
+            tree.Clear();
+
+            // Assert
+            Assert.IsNull(GetRoot(tree));
+            Assert.AreEqual(0, CountNodes(GetRoot(tree)));
+        }
+
+        [TestMethod]
+        public void Clear_NonEmptyTree_RootBecomesNull()
+        {
+            // Arrange
+            var tree = new BinaryTree<TestMusicInstrument>(_generator);
+            tree.CreateIdealTree(5); // Создаем дерево с узлами
+            Assert.IsNotNull(GetRoot(tree), "Ошибка настройки: Дерево не должно быть пустым.");
+            Assert.AreEqual(5, CountNodes(GetRoot(tree)), "Ошибка настройки: Неверное количество узлов.");
+
+            // Act
+            tree.Clear();
+
+            // Assert
+            Assert.IsNull(GetRoot(tree));
+            Assert.AreEqual(0, CountNodes(GetRoot(tree)));
         }
     }
 }
