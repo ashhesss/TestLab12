@@ -1738,4 +1738,353 @@ namespace TestLab12
             Assert.AreEqual(0, CountNodes(GetRoot(tree)));
         }
     }
+
+    // Мок-класс для MusicInstrument
+    //public class MockInstrument : MusicInstrument, ICloneable
+    //{
+    //    public string Name { get; set; }
+    //    public MockInstrument(string name) => Name = name;
+    //    public object Clone() => new MockInstrument(Name);
+    //    public override string ToString() => $"MockInstrument: {Name}";
+    //    public override bool Equals(object obj) => obj is MockInstrument other && Name == other.Name;
+    //    public override int GetHashCode() => Name?.GetHashCode() ?? 0;
+    //}
+
+    [TestClass]
+    public class MyCollectionTests
+    {
+        private MyCollection<MusicInstrument> CreateEmptyCollection(int size = 10)
+        {
+            var collection = new MyCollection<MusicInstrument>();
+            // Используем рефлексию для установки размера, если нужно
+            var field = typeof(MyCollection<MusicInstrument>).GetField("size", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            field.SetValue(collection, size);
+            var tableField = typeof(MyCollection<MusicInstrument>).GetField("table", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            tableField.SetValue(collection, new HashNode<MusicInstrument>[size]);
+            return collection;
+        }
+
+        private MusicInstrument CreateTestInstrument(string name)
+        {
+            // Создаём конкретный экземпляр Guitar для предсказуемости
+            return new Guitar { Name = name }; // Предполагается, что Guitar имеет свойство Name
+        }
+
+        // Тесты для конструкторов
+        [TestMethod]
+        public void Constructor_Default_CreatesEmptyCollection()
+        {
+            var collection = new MyCollection<MusicInstrument>();
+            Assert.AreEqual(0, collection.Count);
+            Assert.IsFalse(collection.ContainsKey("any"));
+        }
+
+        [TestMethod]
+        public void Constructor_WithCapacityZero_CreatesEmptyCollection()
+        {
+            var collection = new MyCollection<MusicInstrument>(0);
+            Assert.AreEqual(0, collection.Count);
+            Assert.IsFalse(collection.ContainsKey("any"));
+        }
+
+        [TestMethod]
+        public void Constructor_WithNegativeCapacity_ThrowsArgumentException()
+        {
+            Assert.ThrowsException<ArgumentException>(() => new MyCollection<MusicInstrument>(-1));
+        }
+
+        [TestMethod]
+        public void Constructor_WithCapacity_AddsRandomInstruments()
+        {
+            var collection = new MyCollection<MusicInstrument>(3);
+            Assert.AreEqual(3, collection.Count);
+            Assert.IsTrue(collection.Keys.All(k => k.StartsWith("Item")));
+        }
+
+        [TestMethod]
+        public void Constructor_CopyWithNull_ThrowsArgumentNullException()
+        {
+            Assert.ThrowsException<ArgumentNullException>(() => new MyCollection<MusicInstrument>(null));
+        }
+
+        [TestMethod]
+        public void Constructor_Copy_CreatesDeepCopy()
+        {
+            var original = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            original.Add("Item1", instrument);
+            var copy = new MyCollection<MusicInstrument>(original);
+            Assert.AreEqual(original.Count, copy.Count);
+            Assert.IsTrue(copy.ContainsKey("Item1"));
+            Assert.AreNotSame(original["Item1"], copy["Item1"]);
+            Assert.AreEqual("Test", copy["Item1"].Name);
+        }
+
+        // Тесты для Add
+        [TestMethod]
+        public void Add_ValidKeyAndValue_AddsElement()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            collection.Add("Item1", instrument);
+            Assert.AreEqual(1, collection.Count);
+            Assert.IsTrue(collection.ContainsKey("Item1"));
+            Assert.AreEqual("Test", collection["Item1"].Name);
+        }
+
+        [TestMethod]
+        public void Add_NullKey_ThrowsArgumentNullException()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            Assert.ThrowsException<ArgumentNullException>(() => collection.Add(null, instrument));
+        }
+
+        [TestMethod]
+        public void Add_NullValue_ThrowsArgumentNullException()
+        {
+            var collection = CreateEmptyCollection();
+            Assert.ThrowsException<ArgumentNullException>(() => collection.Add("Item1", null));
+        }
+
+        [TestMethod]
+        public void Add_DuplicateKey_ThrowsArgumentException()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            collection.Add("Item1", instrument);
+            Assert.ThrowsException<ArgumentException>(() => collection.Add("Item1", instrument));
+        }
+
+        // Тесты для Remove
+        [TestMethod]
+        public void Remove_ExistingKey_RemovesElement()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test"));
+            bool result = collection.Remove("Item1");
+            Assert.IsTrue(result);
+            Assert.AreEqual(0, collection.Count);
+            Assert.IsFalse(collection.ContainsKey("Item1"));
+        }
+
+        [TestMethod]
+        public void Remove_NonExistingKey_ReturnsFalse()
+        {
+            var collection = CreateEmptyCollection();
+            bool result = collection.Remove("Item1");
+            Assert.IsFalse(result);
+            Assert.AreEqual(0, collection.Count);
+        }
+
+        [TestMethod]
+        public void Remove_NullKey_ReturnsFalse()
+        {
+            var collection = CreateEmptyCollection();
+            bool result = collection.Remove(null);
+            Assert.IsFalse(result);
+        }
+
+        [TestMethod]
+        public void Remove_ExistingKeyWithCollisions_MaintainsOtherElements()
+        {
+            var collection = CreateEmptyCollection(3);
+            collection.Add("Item1", CreateTestInstrument("Test1"));
+            collection.Add("Item4", CreateTestInstrument("Test4")); // Предполагаем коллизию
+            collection.Remove("Item1");
+            Assert.IsTrue(collection.ContainsKey("Item4"));
+            Assert.AreEqual("Test4", collection["Item4"].Name);
+        }
+
+        // Тесты для TryGetValue
+        [TestMethod]
+        public void TryGetValue_ExistingKey_ReturnsValue()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            collection.Add("Item1", instrument);
+            bool result = collection.TryGetValue("Item1", out var value);
+            Assert.IsTrue(result);
+            Assert.AreEqual("Test", value.Name);
+            Assert.AreNotSame(instrument, value);
+        }
+
+        [TestMethod]
+        public void TryGetValue_NonExistingKey_ReturnsFalse()
+        {
+            var collection = CreateEmptyCollection();
+            bool result = collection.TryGetValue("Item1", out var value);
+            Assert.IsFalse(result);
+            Assert.IsNull(value);
+        }
+
+        // Тесты для Contains
+        [TestMethod]
+        public void Contains_ExistingPair_ReturnsTrue()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            collection.Add("Item1", instrument);
+            var pair = new KeyValuePair<string, MusicInstrument>("Item1", instrument);
+            Assert.IsTrue(collection.Contains(pair));
+        }
+
+        [TestMethod]
+        public void Contains_NonExistingPair_ReturnsFalse()
+        {
+            var collection = CreateEmptyCollection();
+            var pair = new KeyValuePair<string, MusicInstrument>("Item1", CreateTestInstrument("Test"));
+            Assert.IsFalse(collection.Contains(pair));
+        }
+
+        // Тесты для ContainsKey
+        [TestMethod]
+        public void ContainsKey_ExistingKey_ReturnsTrue()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test"));
+            Assert.IsTrue(collection.ContainsKey("Item1"));
+        }
+
+        [TestMethod]
+        public void ContainsKey_NonExistingKey_ReturnsFalse()
+        {
+            var collection = CreateEmptyCollection();
+            Assert.IsFalse(collection.ContainsKey("Item1"));
+        }
+
+        // Тесты для CopyTo
+        [TestMethod]
+        public void CopyTo_ValidArray_CopiesElements()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test1"));
+            collection.Add("Item2", CreateTestInstrument("Test2"));
+            var array = new KeyValuePair<string, MusicInstrument>[3];
+            collection.CopyTo(array, 1);
+            Assert.IsNull(array[0].Key);
+            Assert.AreEqual("Item1", array[1].Key);
+            Assert.AreEqual("Item2", array[2].Key);
+        }
+
+        [TestMethod]
+        public void CopyTo_NullArray_ThrowsArgumentNullException()
+        {
+            var collection = CreateEmptyCollection();
+            Assert.ThrowsException<ArgumentNullException>(() => collection.CopyTo(null, 0));
+        }
+
+        [TestMethod]
+        public void CopyTo_InvalidIndex_ThrowsArgumentOutOfRangeException()
+        {
+            var collection = CreateEmptyCollection();
+            var array = new KeyValuePair<string, MusicInstrument>[1];
+            Assert.ThrowsException<ArgumentOutOfRangeException>(() => collection.CopyTo(array, -1));
+        }
+
+        [TestMethod]
+        public void CopyTo_InsufficientSpace_ThrowsArgumentException()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test"));
+            var array = new KeyValuePair<string, MusicInstrument>[1];
+            Assert.ThrowsException<ArgumentException>(() => collection.CopyTo(array, 1));
+        }
+
+        // Тесты для Clear
+        [TestMethod]
+        public void Clear_NonEmptyCollection_ClearsAllElements()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test"));
+            collection.Clear();
+            Assert.AreEqual(0, collection.Count);
+            Assert.IsFalse(collection.ContainsKey("Item1"));
+        }
+
+        [TestMethod]
+        public void Clear_EmptyCollection_DoesNothing()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Clear();
+            Assert.AreEqual(0, collection.Count);
+        }
+
+        // Тесты для индексатора
+        [TestMethod]
+        public void Indexer_GetExistingKey_ReturnsValue()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            collection.Add("Item1", instrument);
+            var value = collection["Item1"];
+            Assert.AreEqual("Test", value.Name);
+            Assert.AreNotSame(instrument, value);
+        }
+
+        [TestMethod]
+        public void Indexer_GetNonExistingKey_ThrowsKeyNotFoundException()
+        {
+            var collection = CreateEmptyCollection();
+            Assert.ThrowsException<KeyNotFoundException>(() => { var _ = collection["Item1"]; });
+        }
+
+        [TestMethod]
+        public void Indexer_SetExistingKey_UpdatesValue()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test1"));
+            var newInstrument = CreateTestInstrument("Test2");
+            collection["Item1"] = newInstrument;
+            Assert.AreEqual("Test2", collection["Item1"].Name);
+        }
+
+        [TestMethod]
+        public void Indexer_SetNonExistingKey_AddsNewElement()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            collection["Item1"] = instrument;
+            Assert.AreEqual(1, collection.Count);
+            Assert.AreEqual("Test", collection["Item1"].Name);
+        }
+
+        // Тесты для Keys и Values
+        [TestMethod]
+        public void Keys_NonEmptyCollection_ReturnsAllKeys()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test1"));
+            collection.Add("Item2", CreateTestInstrument("Test2"));
+            var keys = collection.Keys;
+            Assert.AreEqual(2, keys.Count);
+            Assert.IsTrue(keys.Contains("Item1"));
+            Assert.IsTrue(keys.Contains("Item2"));
+        }
+
+        [TestMethod]
+        public void Values_NonEmptyCollection_ReturnsClonedValues()
+        {
+            var collection = CreateEmptyCollection();
+            var instrument = CreateTestInstrument("Test");
+            collection.Add("Item1", instrument);
+            var values = collection.Values;
+            Assert.AreEqual(1, values.Count);
+            Assert.AreEqual("Test", values.First().Name);
+            Assert.AreNotSame(instrument, values.First());
+        }
+
+        // Тесты для GetEnumerator
+        [TestMethod]
+        public void GetEnumerator_NonEmptyCollection_EnumeratesAllPairs()
+        {
+            var collection = CreateEmptyCollection();
+            collection.Add("Item1", CreateTestInstrument("Test1"));
+            collection.Add("Item2", CreateTestInstrument("Test2"));
+            var pairs = collection.ToList();
+            Assert.AreEqual(2, pairs.Count);
+            Assert.IsTrue(pairs.Any(p => p.Key == "Item1" && p.Value.Name == "Test1"));
+            Assert.IsTrue(pairs.Any(p => p.Key == "Item2" && p.Value.Name == "Test2"));
+        }
+    }
 }
